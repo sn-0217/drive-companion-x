@@ -19,8 +19,7 @@ export function BottomNav() {
     >
       <ul className="mx-auto flex max-w-md items-stretch justify-between px-2 pt-2 pb-2">
         {tabs.map((t) => {
-          const active =
-            t.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(t.to);
+          const active = t.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(t.to);
           const Icon = t.icon;
           return (
             <li key={t.to} className="flex-1">
@@ -28,9 +27,7 @@ export function BottomNav() {
                 to={t.to}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-medium uppercase tracking-wider transition-all",
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground active:scale-95",
+                  active ? "text-primary" : "text-muted-foreground active:scale-95",
                 )}
               >
                 <span

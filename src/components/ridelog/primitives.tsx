@@ -39,17 +39,15 @@ export function Stat({
     accent === "success"
       ? "text-success"
       : accent === "warning"
-      ? "text-warning"
-      : accent === "danger"
-      ? "text-danger"
-      : accent === "primary"
-      ? "text-primary"
-      : "text-foreground";
+        ? "text-warning"
+        : accent === "danger"
+          ? "text-danger"
+          : accent === "primary"
+            ? "text-primary"
+            : "text-foreground";
   return (
     <Card className="flex flex-col gap-2">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
       <div className="flex items-baseline gap-1.5">
         <span className={cn("num text-2xl font-semibold", tone)}>{value}</span>
         {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
@@ -58,13 +56,7 @@ export function Stat({
   );
 }
 
-export function SectionHeader({
-  title,
-  action,
-}: {
-  title: string;
-  action?: ReactNode;
-}) {
+export function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="flex items-end justify-between px-1">
       <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>

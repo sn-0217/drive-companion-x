@@ -25,8 +25,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "RideLog Pro — Your offline ride companion" },
       {
         property: "og:description",
-        content:
-          "Turn your scooter or motorcycle into a smart vehicle. Offline, no login, no ads.",
+        content: "Turn your scooter or motorcycle into a smart vehicle. Offline, no login, no ads.",
       },
       { property: "og:type", content: "website" },
     ],
@@ -60,9 +59,7 @@ function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between fade-in-up">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            {v.name}
-          </p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{v.name}</p>
           <p className="text-sm text-foreground/80">Good ride ahead</p>
         </div>
         <span className="flex h-9 items-center gap-2 rounded-full bg-surface px-3 text-[11px] text-success">
@@ -71,7 +68,7 @@ function Dashboard() {
       </div>
 
       {/* Hero odometer */}
-      <Card className="mt-6 overflow-hidden p-7 fade-in-up" >
+      <Card className="mt-6 overflow-hidden p-7 fade-in-up">
         <div
           className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
           style={{ background: "var(--gradient-hero)" }}
@@ -88,7 +85,9 @@ function Dashboard() {
 
         <div className="mt-6 space-y-2">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Tank · {fuel.toFixed(2)} L of {v.tankCapacity} L</span>
+            <span>
+              Tank · {fuel.toFixed(2)} L of {v.tankCapacity} L
+            </span>
             <span>{Math.round(tankPct * 100)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-surface-elevated">
@@ -149,9 +148,7 @@ function Dashboard() {
             style={{
               width: `${Math.min(100, (spend / Math.max(1, v.monthlyBudget)) * 100)}%`,
               background:
-                spend > v.monthlyBudget
-                  ? "var(--color-danger)"
-                  : "var(--gradient-primary)",
+                spend > v.monthlyBudget ? "var(--color-danger)" : "var(--gradient-primary)",
             }}
           />
         </div>

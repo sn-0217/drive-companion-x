@@ -3,15 +3,36 @@ import { useState } from "react";
 import { AppShell } from "@/components/ridelog/AppShell";
 import { Card, SectionHeader, EmptyState } from "@/components/ridelog/primitives";
 import { useAppData, uid, exportJson, importJson, saveData } from "@/lib/ridelog";
-import { Download, Upload, Plus, Wrench, Trash2 } from "lucide-react";
+import {
+  backupToGoogleDrive,
+  getGoogleDriveBackupInfo,
+  isGoogleDriveConfigured,
+  restoreFromGoogleDrive,
+} from "@/lib/googleDrive";
+import {
+  CheckCircle2,
+  Download,
+  Upload,
+  Plus,
+  Wrench,
+  Trash2,
+  Cloud,
+  RefreshCw,
+} from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings · RideLog Pro" },
-      { name: "description", content: "Vehicle config, maintenance reminders, backup and restore." },
+      {
+        name: "description",
+        content: "Vehicle config, maintenance reminders, backup and restore.",
+      },
       { property: "og:title", content: "Settings · RideLog Pro" },
-      { property: "og:description", content: "Tune your vehicle, manage maintenance, export your data." },
+      {
+        property: "og:description",
+        content: "Tune your vehicle, manage maintenance, export your data.",
+      },
     ],
   }),
   component: () => (
@@ -75,6 +96,8 @@ function SettingsPage() {
       <div className="mt-8 space-y-3">
         <SectionHeader title="Data" />
         <Card className="space-y-3">
+          <GoogleDriveSync />
+          <Divider />
           <button
             onClick={() => {
               const blob = new Blob([exportJson(data)], { type: "application/json" });
@@ -132,6 +155,115 @@ function SettingsPage() {
   );
 }
 
+function GoogleDriveSync() {
+  const { data } = useAppData();
+  const [busy, setBusy] = useState<"backup" | "restore" | "check" | null>(null);
+  const [message, setMessage] = useState("");
+  const [lastBackupAt, setLastBackupAt] = useState("");
+  const configured = isGoogleDriveConfigured();
+
+  const run = async (action: "backup" | "restore" | "check") => {
+    setBusy(action);
+    setMessage(
+      action === "backup"
+        ? "Opening Google sign-in..."
+        : action === "restore"
+          ? "Opening Google sign-in..."
+          : "Checking Google Drive...",
+    );
+    try {
+      if (action === "backup") {
+        const info = await backupToGoogleDrive(data);
+        const updatedAt = info.modifiedTime ?? new Date().toISOString();
+        setLastBackupAt(updatedAt);
+        setMessage(`Backup successful · ${new Date(updatedAt).toLocaleString()}`);
+      } else if (action === "restore") {
+        if (!confirm("Restore from Google Drive? This will replace local RideLog data.")) return;
+        const cloudData = await restoreFromGoogleDrive();
+        saveData(importJson(JSON.stringify(cloudData)));
+        setMessage("Restore successful. Your local data was updated.");
+      } else {
+        const info = await getGoogleDriveBackupInfo();
+        if (info?.modifiedTime) {
+          setLastBackupAt(info.modifiedTime);
+          setMessage(`Last cloud backup · ${new Date(info.modifiedTime).toLocaleString()}`);
+        } else {
+          setLastBackupAt("");
+          setMessage("No Google Drive backup found yet.");
+        }
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Google Drive sync failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Cloud className="h-4 w-4 text-primary" /> Google Drive sync
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Stores one hidden backup file in Google Drive app data. Free, private to this app.
+        </p>
+      </div>
+
+      {configured ? (
+        <div className="flex items-center gap-2 rounded-2xl bg-success/10 px-4 py-3 text-xs text-success hairline">
+          <CheckCircle2 className="h-4 w-4" /> Google sync is configured
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-warning/10 px-4 py-3 text-xs text-warning hairline">
+          Add <span className="num">VITE_GOOGLE_CLIENT_ID</span> to enable Google sync. Create a
+          free OAuth Web client in Google Cloud and allow this app's URL.
+        </div>
+      )}
+
+      {lastBackupAt && (
+        <p className="text-xs text-muted-foreground">
+          Last backup:{" "}
+          <span className="num text-foreground">{new Date(lastBackupAt).toLocaleString()}</span>
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          disabled={!configured || busy !== null}
+          onClick={() => run("backup")}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+        >
+          {busy === "backup" ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Cloud className="h-4 w-4" />
+          )}
+          {busy === "backup" ? "Backing up..." : "Backup"}
+        </button>
+        <button
+          disabled={!configured || busy !== null}
+          onClick={() => run("restore")}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-surface-elevated px-4 py-3 text-sm font-semibold text-foreground hairline disabled:opacity-40"
+        >
+          <RefreshCw className={`h-4 w-4 ${busy === "restore" ? "animate-spin" : ""}`} />
+          {busy === "restore" ? "Restoring..." : "Restore"}
+        </button>
+      </div>
+
+      <button
+        disabled={!configured || busy !== null}
+        onClick={() => run("check")}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-surface-elevated px-4 py-3 text-xs font-medium text-muted-foreground hairline disabled:opacity-40"
+      >
+        {busy === "check" && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+        {busy === "check" ? "Checking cloud backup..." : "Check cloud backup"}
+      </button>
+
+      {message && <p className="text-xs text-muted-foreground">{message}</p>}
+    </div>
+  );
+}
 function MaintenanceList() {
   const { data, update } = useAppData();
   const [adding, setAdding] = useState(false);
@@ -162,8 +294,8 @@ function MaintenanceList() {
                   {dueIn !== null
                     ? `Due in ${Math.max(0, dueIn).toLocaleString()} km`
                     : m.intervalDays
-                    ? `Every ${m.intervalDays} days`
-                    : "Reminder set"}
+                      ? `Every ${m.intervalDays} days`
+                      : "Reminder set"}
                 </p>
               </div>
             </div>

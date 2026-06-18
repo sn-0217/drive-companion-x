@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { AppShell } from "@/components/ridelog/AppShell";
 import { Card, EmptyState, SectionHeader } from "@/components/ridelog/primitives";
-import { useAppData, uid, type Trip } from "@/lib/ridelog";
-import { Play, Square, Plus, Navigation, Hand, Radio } from "lucide-react";
+import { currentOdometer, useAppData, uid, type Trip } from "@/lib/ridelog";
+import { Play, Square, Plus, Navigation, Hand, Radio, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/trips")({
@@ -27,6 +27,49 @@ type Mode = "manual" | "gps" | "auto";
 function TripsPage() {
   const [mode, setMode] = useState<Mode>("manual");
   const { data, update } = useAppData();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDistance, setEditDistance] = useState("");
+  const [editStartOdo, setEditStartOdo] = useState("");
+  const [editEndOdo, setEditEndOdo] = useState("");
+  const [editDate, setEditDate] = useState("");
+
+  const startEditing = (trip: Trip) => {
+    setEditingId(trip.id);
+    setEditDistance(String(trip.distance));
+    setEditStartOdo(trip.startOdo !== undefined ? String(trip.startOdo) : "");
+    setEditEndOdo(trip.endOdo !== undefined ? String(trip.endOdo) : "");
+    setEditDate(toLocalDateTimeInput(trip.date));
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditDistance("");
+    setEditStartOdo("");
+    setEditEndOdo("");
+    setEditDate("");
+  };
+
+  const saveEditing = () => {
+    const date = new Date(editDate).getTime();
+    if (!editingId || !Number.isFinite(date)) return;
+    update((data) => ({
+      ...data,
+      trips: data.trips.map((trip) => {
+        if (trip.id !== editingId) return trip;
+        if (trip.mode === "manual") {
+          const startOdo = Number(editStartOdo);
+          const endOdo = Number(editEndOdo);
+          const distance = endOdo - startOdo;
+          if (startOdo < 0 || distance <= 0) return trip;
+          return { ...trip, startOdo, endOdo, distance, date };
+        }
+        const distance = Number(editDistance);
+        if (distance <= 0) return trip;
+        return { ...trip, distance, date };
+      }),
+    }));
+    cancelEditing();
+  };
 
   return (
     <div className="px-5 pt-12">
@@ -71,26 +114,82 @@ function TripsPage() {
           [...data.trips]
             .sort((a, b) => b.date - a.date)
             .slice(0, 20)
-            .map((t) => (
-              <Card key={t.id} className="flex items-center justify-between">
-                <div>
-                  <p className="num text-lg font-semibold text-foreground">
-                    {t.distance.toFixed(2)} km
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(t.date).toLocaleString()} · {t.mode.toUpperCase()}
-                  </p>
-                </div>
-                <button
-                  onClick={() =>
-                    update((d) => ({ ...d, trips: d.trips.filter((x) => x.id !== t.id) }))
-                  }
-                  className="text-xs text-muted-foreground/70 hover:text-danger"
-                >
-                  Delete
-                </button>
-              </Card>
-            ))
+            .map((t) =>
+              editingId === t.id ? (
+                <Card key={t.id} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    {t.mode === "manual" ? (
+                      <>
+                        <NumberField
+                          label="Start odo"
+                          value={editStartOdo}
+                          onChange={setEditStartOdo}
+                        />
+                        <NumberField label="End odo" value={editEndOdo} onChange={setEditEndOdo} />
+                      </>
+                    ) : (
+                      <NumberField
+                        label="Distance (km)"
+                        value={editDistance}
+                        onChange={setEditDistance}
+                      />
+                    )}
+                    <label className="block rounded-2xl bg-surface-elevated px-4 py-3 hairline">
+                      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                        Date & time
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={editDate}
+                        onChange={(event) => setEditDate(event.target.value)}
+                        className="num mt-1 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={cancelEditing}
+                      className="flex-1 rounded-2xl bg-surface-elevated px-4 py-3 text-sm text-muted-foreground hairline"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveEditing}
+                      className="flex-[2] rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+                    >
+                      Save changes
+                    </button>
+                  </div>
+                </Card>
+              ) : (
+                <Card key={t.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="num text-lg font-semibold text-foreground">
+                      {t.distance.toFixed(2)} km
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(t.date).toLocaleString()} · {t.mode.toUpperCase()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => startEditing(t)}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                    >
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
+                    <button
+                      onClick={() =>
+                        update((d) => ({ ...d, trips: d.trips.filter((x) => x.id !== t.id) }))
+                      }
+                      className="text-xs text-muted-foreground/70 hover:text-danger"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </Card>
+              ),
+            )
         )}
       </div>
     </div>
@@ -98,16 +197,19 @@ function TripsPage() {
 }
 
 function ManualTrip() {
-  const { update } = useAppData();
-  const [start, setStart] = useState("");
+  const { data, update } = useAppData();
+  const latestOdo = currentOdometer(data);
+  const [start, setStart] = useState(() => String(latestOdo));
   const [end, setEnd] = useState("");
   const distance = Math.max(0, Number(end) - Number(start));
 
+  useEffect(() => {
+    setStart((value) => (value ? value : String(latestOdo)));
+  }, [latestOdo]);
+
   return (
     <Card>
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        Manual entry
-      </p>
+      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Manual entry</p>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <NumberField label="Start odo" value={start} onChange={setStart} />
         <NumberField label="End odo" value={end} onChange={setEnd} />
@@ -132,7 +234,7 @@ function ManualTrip() {
               },
             ],
           }));
-          setStart("");
+          setStart(String(Number(end)));
           setEnd("");
         }}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40"
@@ -212,13 +314,9 @@ function GpsTrip() {
 
   return (
     <Card>
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        GPS tracking
-      </p>
+      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">GPS tracking</p>
       <div className="mt-4 flex items-baseline gap-2">
-        <span className="num text-5xl font-semibold text-foreground">
-          {distance.toFixed(2)}
-        </span>
+        <span className="num text-5xl font-semibold text-foreground">{distance.toFixed(2)}</span>
         <span className="text-sm text-muted-foreground">km</span>
       </div>
       <p className="num mt-1 text-xs text-muted-foreground">
@@ -229,9 +327,7 @@ function GpsTrip() {
         onClick={tracking ? stop : start}
         className={cn(
           "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all active:scale-[0.97]",
-          tracking
-            ? "bg-danger text-white"
-            : "bg-primary text-primary-foreground",
+          tracking ? "bg-danger text-white" : "bg-primary text-primary-foreground",
         )}
       >
         {tracking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -251,6 +347,16 @@ function AutoTrip() {
   const lastPos = useRef<GeolocationPosition | null>(null);
   const slowSince = useRef<number | null>(null);
   const distRef = useRef(0);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  const setRideStatus = (next: "idle" | "waiting" | "riding") => {
+    statusRef.current = next;
+    setStatus(next);
+  };
 
   const stopAll = () => {
     if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
@@ -266,7 +372,7 @@ function AutoTrip() {
     }
     setError(null);
     setArmed(true);
-    setStatus("waiting");
+    setRideStatus("waiting");
     distRef.current = 0;
     setDistance(0);
     lastPos.current = null;
@@ -274,8 +380,8 @@ function AutoTrip() {
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         const speed = pos.coords.speed ?? 0; // m/s
-        if (status !== "riding" && speed > 2.5) {
-          setStatus("riding");
+        if (statusRef.current !== "riding" && speed > 2.5) {
+          setRideStatus("riding");
         }
         if (lastPos.current) {
           const d = haversine(
@@ -294,7 +400,7 @@ function AutoTrip() {
         if (speed < 0.5) {
           slowSince.current ??= Date.now();
           if (
-            status === "riding" &&
+            statusRef.current === "riding" &&
             slowSince.current &&
             Date.now() - slowSince.current > 60_000
           ) {
@@ -310,7 +416,7 @@ function AutoTrip() {
             }
             distRef.current = 0;
             setDistance(0);
-            setStatus("waiting");
+            setRideStatus("waiting");
             slowSince.current = null;
           }
         } else {
@@ -325,7 +431,7 @@ function AutoTrip() {
   const disarm = () => {
     stopAll();
     setArmed(false);
-    setStatus("idle");
+    setRideStatus("idle");
     if (distRef.current > 0.05) {
       update((d) => ({
         ...d,
@@ -360,8 +466,8 @@ function AutoTrip() {
             status === "riding"
               ? "bg-success"
               : armed
-              ? "bg-warning animate-pulse"
-              : "bg-muted-foreground/40",
+                ? "bg-warning animate-pulse"
+                : "bg-muted-foreground/40",
           )}
         />
       </div>
@@ -373,7 +479,9 @@ function AutoTrip() {
         onClick={armed ? disarm : arm}
         className={cn(
           "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all active:scale-[0.97]",
-          armed ? "bg-surface-elevated text-foreground hairline" : "bg-primary text-primary-foreground",
+          armed
+            ? "bg-surface-elevated text-foreground hairline"
+            : "bg-primary text-primary-foreground",
         )}
       >
         {armed ? "Disarm" : "Arm auto-detect"}
@@ -396,9 +504,7 @@ function NumberField({
 }) {
   return (
     <label className="block rounded-2xl bg-surface-elevated px-4 py-3 hairline">
-      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-        {label}
-      </span>
+      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</span>
       <input
         type="number"
         inputMode="decimal"
@@ -420,6 +526,11 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function toLocalDateTimeInput(timestamp: number) {
+  const date = new Date(timestamp - new Date(timestamp).getTimezoneOffset() * 60_000);
+  return date.toISOString().slice(0, 16);
 }
 
 function formatTime(sec: number) {

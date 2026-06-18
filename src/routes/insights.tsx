@@ -19,7 +19,10 @@ export const Route = createFileRoute("/insights")({
   head: () => ({
     meta: [
       { title: "Insights · RideLog Pro" },
-      { name: "description", content: "Distance, mileage and spend trends across day, week, month and year." },
+      {
+        name: "description",
+        content: "Distance, mileage and spend trends across day, week, month and year.",
+      },
       { property: "og:title", content: "Insights · RideLog Pro" },
       { property: "og:description", content: "Beautiful interactive charts for your ride data." },
     ],
@@ -92,9 +95,7 @@ function Insights() {
   }, [data]);
 
   const spendSeries = useMemo(() => {
-    const arr = data.fuel
-      .filter((f) => f.date >= since)
-      .sort((a, b) => a.date - b.date);
+    const arr = data.fuel.filter((f) => f.date >= since).sort((a, b) => a.date - b.date);
     let cum = 0;
     return arr.map((f) => {
       cum += f.totalCost;
@@ -119,9 +120,7 @@ function Insights() {
             key={r.k}
             onClick={() => setRangeKey(r.k)}
             className={`rounded-xl py-2 text-xs font-semibold transition-all ${
-              r.k === rangeKey
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground"
+              r.k === rangeKey ? "bg-primary text-primary-foreground" : "text-muted-foreground"
             }`}
           >
             {r.label}

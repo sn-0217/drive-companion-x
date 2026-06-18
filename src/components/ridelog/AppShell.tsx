@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { useAppData, type Vehicle } from "@/lib/ridelog";
+import { AppDataProvider, useAppDataStore, type Vehicle } from "@/lib/ridelog";
 import { BottomNav } from "./BottomNav";
 import { Card } from "./primitives";
 import { Bike } from "lucide-react";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { data, ready, update } = useAppData();
+  const store = useAppDataStore();
+  const { data, ready, update } = store;
 
   if (!ready) {
     return <div className="min-h-screen bg-background" />;
@@ -14,18 +15,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!data.vehicle) {
     return (
       <Setup
-        onComplete={(v) =>
-          update((d) => ({ ...d, vehicle: { ...v, createdAt: Date.now() } }))
-        }
+        onComplete={(v) => update((d) => ({ ...d, vehicle: { ...v, createdAt: Date.now() } }))}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-md pb-28">{children}</div>
-      <BottomNav />
-    </div>
+    <AppDataProvider value={store}>
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-md pb-28">{children}</div>
+        <BottomNav />
+      </div>
+    </AppDataProvider>
   );
 }
 
@@ -43,13 +44,30 @@ function Setup({ onComplete }: { onComplete: (v: Omit<Vehicle, "createdAt">) => 
     { key: "name", label: "Name your ride", hint: "e.g. Activa 6G", type: "text" as const },
     { key: "odometer", label: "Current odometer", hint: "kilometers", type: "number" as const },
     { key: "tankCapacity", label: "Tank capacity", hint: "litres", type: "number" as const },
-    { key: "expectedMileage", label: "Expected mileage", hint: "km per litre", type: "number" as const },
-    { key: "monthlyBudget", label: "Monthly fuel budget", hint: "total per month", type: "number" as const },
+    {
+      key: "expectedMileage",
+      label: "Expected mileage",
+      hint: "km per litre",
+      type: "number" as const,
+    },
+    {
+      key: "monthlyBudget",
+      label: "Monthly fuel budget",
+      hint: "total per month",
+      type: "number" as const,
+    },
   ];
 
   const cur = steps[step];
   const value = (v as Record<string, string | number>)[cur.key];
   const valid = cur.type === "text" ? String(value).trim().length > 0 : Number(value) > 0;
+  const goNext = () => {
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+    } else {
+      onComplete(v);
+    }
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background px-6 pb-12 pt-16">
@@ -99,13 +117,12 @@ function Setup({ onComplete }: { onComplete: (v: Omit<Vehicle, "createdAt">) => 
               onChange={(e) =>
                 setV((p) => ({
                   ...p,
-                  [cur.key]:
-                    cur.type === "number" ? Number(e.target.value || 0) : e.target.value,
+                  [cur.key]: cur.type === "number" ? Number(e.target.value || 0) : e.target.value,
                 }))
               }
               onKeyDown={(e) => {
                 if (e.key === "Enter" && valid) {
-                  step < steps.length - 1 ? setStep(step + 1) : onComplete(v);
+                  goNext();
                 }
               }}
               placeholder={cur.hint}
@@ -124,7 +141,7 @@ function Setup({ onComplete }: { onComplete: (v: Omit<Vehicle, "createdAt">) => 
           </button>
           <button
             disabled={!valid}
-            onClick={() => (step < steps.length - 1 ? setStep(step + 1) : onComplete(v))}
+            onClick={goNext}
             className="flex-1 rounded-2xl bg-primary px-6 py-4 text-sm font-semibold text-primary-foreground transition-all active:scale-[0.97] disabled:opacity-40"
             style={{ boxShadow: "var(--shadow-glow)" }}
           >

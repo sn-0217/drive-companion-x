@@ -1,12 +1,20 @@
 // Offline-first local storage layer for RideLog Pro
-import { useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 export type Vehicle = {
   name: string;
-  odometer: number;          // km
-  tankCapacity: number;      // L
-  expectedMileage: number;   // km/L
-  monthlyBudget: number;     // currency
+  odometer: number; // km
+  tankCapacity: number; // L
+  expectedMileage: number; // km/L
+  monthlyBudget: number; // currency
   createdAt: number;
 };
 
@@ -25,13 +33,13 @@ export type Trip = {
   mode: "manual" | "gps" | "auto";
   startOdo?: number;
   endOdo?: number;
-  distance: number;          // km
+  distance: number; // km
   durationSec?: number;
 };
 
 export type Maintenance = {
   id: string;
-  type: string;              // Service, Oil, Tyre, Insurance, PUC, Custom
+  type: string; // Service, Oil, Tyre, Insurance, PUC, Custom
   lastDate?: number;
   lastOdo?: number;
   intervalDays?: number;
@@ -49,6 +57,14 @@ export type AppData = {
 const KEY = "ridelog-pro:v1";
 
 const empty: AppData = { vehicle: null, fuel: [], trips: [], maintenance: [] };
+
+export type AppDataStore = {
+  data: AppData;
+  ready: boolean;
+  update: (mutator: (data: AppData) => AppData) => void;
+};
+
+const AppDataContext = createContext<AppDataStore | null>(null);
 
 function read(): AppData {
   if (typeof window === "undefined") return empty;
@@ -71,7 +87,7 @@ export function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-export function useAppData() {
+export function useAppDataStore(): AppDataStore {
   const [data, setData] = useState<AppData>(empty);
   const [ready, setReady] = useState(false);
 
@@ -96,23 +112,58 @@ export function useAppData() {
   return { data, ready, update };
 }
 
+export function AppDataProvider({ value, children }: { value: AppDataStore; children: ReactNode }) {
+  return createElement(AppDataContext.Provider, { value }, children);
+}
+
+export function useAppData(): AppDataStore {
+  const store = useContext(AppDataContext);
+  if (!store) {
+    throw new Error("useAppData must be used inside AppDataProvider");
+  }
+  return store;
+}
+
 // ---------- Derived analytics ----------
 
 export function currentOdometer(data: AppData): number {
-  const v = data.vehicle?.odometer ?? 0;
-  const tripExtra = data.trips.reduce((s, t) => s + (t.distance || 0), 0);
-  // If user logs trips after setup, odometer = base + trips.
-  // Fuel entries also include the current odometer; pick max.
-  const fuelMax = data.fuel.reduce((m, f) => Math.max(m, f.odometer || 0), 0);
-  return Math.max(v + tripExtra, fuelMax, v);
+  let odometer = data.vehicle?.odometer ?? 0;
+  const events = [
+    ...data.fuel.map((entry) => ({
+      date: entry.date,
+      kind: "fuel" as const,
+      odometer: entry.odometer,
+    })),
+    ...data.trips.map((trip) => ({
+      date: trip.date,
+      kind: "trip" as const,
+      trip,
+    })),
+  ].sort((a, b) => a.date - b.date);
+
+  for (const event of events) {
+    if (event.kind === "fuel") {
+      odometer = Math.max(odometer, event.odometer || 0);
+      continue;
+    }
+
+    const { trip } = event;
+    if (trip.startOdo !== undefined && trip.endOdo !== undefined) {
+      odometer = Math.max(odometer, trip.startOdo, trip.endOdo);
+    } else {
+      odometer += trip.distance || 0;
+    }
+  }
+
+  return odometer;
 }
 
 export function averageMileage(data: AppData): number | null {
   const sorted = [...data.fuel].sort((a, b) => a.odometer - b.odometer);
   if (sorted.length < 2) return null;
   const distance = sorted[sorted.length - 1].odometer - sorted[0].odometer;
-  // exclude last fill (not yet consumed)
-  const liters = sorted.slice(0, -1).reduce((s, f) => s + f.liters, 0);
+  // Each interval's consumed fuel is recorded by the fill that ends that interval.
+  const liters = sorted.slice(1).reduce((sum, entry) => sum + entry.liters, 0);
   if (liters <= 0 || distance <= 0) return null;
   return distance / liters;
 }
@@ -126,7 +177,7 @@ export function fuelRemaining(data: AppData): number {
   const mpg = averageMileage(data) ?? data.vehicle.expectedMileage;
   const distSinceFill = Math.max(0, odo - last.odometer);
   const used = distSinceFill / mpg;
-  const remaining = Math.min(data.vehicle.tankCapacity, last.liters) - used;
+  const remaining = data.vehicle.tankCapacity - used;
   return Math.max(0, remaining);
 }
 
@@ -139,9 +190,7 @@ export function estimatedRange(data: AppData): number {
 export function todaysDistance(data: AppData): number {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  return data.trips
-    .filter((t) => t.date >= start.getTime())
-    .reduce((s, t) => s + t.distance, 0);
+  return data.trips.filter((t) => t.date >= start.getTime()).reduce((s, t) => s + t.distance, 0);
 }
 
 export function distanceInRange(data: AppData, fromMs: number): number {
@@ -152,9 +201,7 @@ export function monthlySpend(data: AppData): number {
   const start = new Date();
   start.setDate(1);
   start.setHours(0, 0, 0, 0);
-  return data.fuel
-    .filter((f) => f.date >= start.getTime())
-    .reduce((s, f) => s + f.totalCost, 0);
+  return data.fuel.filter((f) => f.date >= start.getTime()).reduce((s, f) => s + f.totalCost, 0);
 }
 
 export function smartInsight(data: AppData): string {
