@@ -174,7 +174,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const prevIdx = globalPrevPath !== null ? getTabIndex(globalPrevPath) : -1;
   const curIdx = getTabIndex(location.pathname);
   const isFirstRender = globalPrevPath === null;
-  const animClass = isFirstRender
+  const isSamePath = globalPrevPath === location.pathname;
+  const animClass = isFirstRender || isSamePath
     ? ""
     : curIdx === -1 || prevIdx === -1
       ? "page-enter-fade"
