@@ -155,9 +155,42 @@ function Setup({ onComplete }: { onComplete: (v: Omit<Vehicle, "createdAt">) => 
               : cur.hint}
           </p>
 
+          {/* Input field */}
+          <Card className="mt-6 p-0">
+            <input
+              autoFocus
+              inputMode={cur.type === "number" ? "decimal" : "text"}
+              type={cur.type}
+              value={value === 0 && cur.type === "number" ? "" : String(value)}
+              onChange={(e) =>
+                setV((p) => ({
+                  ...p,
+                  [cur.key]: cur.type === "number" ? Number(e.target.value || 0) : e.target.value,
+                }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && valid) {
+                  goNext();
+                }
+              }}
+              placeholder={
+                step === 0 ? "Vehicle Name (e.g., Vespa GTS)" : cur.hint
+              }
+              className="num w-full bg-transparent px-6 py-7 text-4xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/40"
+            />
+          </Card>
+
           {/* Get from Google — only on step 0, only when client ID is set */}
           {showGoogleButton && (
-            <div className="mt-6 fade-in-up">
+            <div className="mt-5 fade-in-up">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="h-px flex-1" style={{ background: "oklch(1 0 0 / 8%)" }} />
+                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                  or get from Google
+                </p>
+                <div className="h-px flex-1" style={{ background: "oklch(1 0 0 / 8%)" }} />
+              </div>
+
               <button
                 id="get-from-google-btn"
                 onClick={handleGetFromGoogle}
@@ -199,41 +232,8 @@ function Setup({ onComplete }: { onComplete: (v: Omit<Vehicle, "createdAt">) => 
               {googleState === "error" && googleError && (
                 <p className="mt-2 text-center text-xs text-danger/80">{googleError}</p>
               )}
-
-              <div className="mt-5 flex items-center gap-3">
-                <div className="h-px flex-1" style={{ background: "oklch(1 0 0 / 8%)" }} />
-                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                  or fill manually
-                </p>
-                <div className="h-px flex-1" style={{ background: "oklch(1 0 0 / 8%)" }} />
-              </div>
             </div>
           )}
-
-          {/* Input field */}
-          <Card className="mt-4 p-0">
-            <input
-              autoFocus
-              inputMode={cur.type === "number" ? "decimal" : "text"}
-              type={cur.type}
-              value={value === 0 && cur.type === "number" ? "" : String(value)}
-              onChange={(e) =>
-                setV((p) => ({
-                  ...p,
-                  [cur.key]: cur.type === "number" ? Number(e.target.value || 0) : e.target.value,
-                }))
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && valid) {
-                  goNext();
-                }
-              }}
-              placeholder={
-                step === 0 ? "Vehicle Name (e.g., Vespa GTS)" : cur.hint
-              }
-              className="num w-full bg-transparent px-6 py-7 text-4xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/40"
-            />
-          </Card>
         </div>
 
         {/* Navigation */}
