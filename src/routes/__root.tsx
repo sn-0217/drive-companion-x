@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { useAppDataStore, AppDataProvider } from "../lib/ridelog";
 
 function NotFoundComponent() {
   return (
@@ -134,11 +135,18 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const store = useAppDataStore();
+
+  if (!store.ready) {
+    return <div className="fixed inset-0 bg-background" />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AppDataProvider value={store}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </AppDataProvider>
     </QueryClientProvider>
   );
 }

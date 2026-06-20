@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
-import { AppDataProvider, useAppDataStore, type Vehicle, type AppData } from "@/lib/ridelog";
+import { AppDataProvider, useAppData, type Vehicle, type AppData } from "@/lib/ridelog";
 import { BottomNav } from "./BottomNav";
 import { Card } from "./primitives";
 import { Bike, Cloud, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -160,19 +160,20 @@ function CloudSyncBadge({ onClick }: { onClick: () => void }) {
   );
 }
 
+let globalPrevPath: string | null = null;
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const store = useAppDataStore();
+  const store = useAppData();
   const { data, ready, update } = store;
   const scrollRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const prevPathRef = useRef<string | null>(null);
 
   const { autoSyncEnabled } = useAutoSync(data, ready);
 
   // Compute slide direction from tab order
-  const prevIdx = prevPathRef.current !== null ? getTabIndex(prevPathRef.current) : -1;
+  const prevIdx = globalPrevPath !== null ? getTabIndex(globalPrevPath) : -1;
   const curIdx = getTabIndex(location.pathname);
-  const isFirstRender = prevPathRef.current === null;
+  const isFirstRender = globalPrevPath === null;
   const animClass = isFirstRender
     ? ""
     : curIdx === -1 || prevIdx === -1
@@ -183,7 +184,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Track previous path after each render
   useEffect(() => {
-    prevPathRef.current = location.pathname;
+    globalPrevPath = location.pathname;
   });
 
   // Scroll content back to top on every route change
