@@ -1,8 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AppShell } from "@/components/ridelog/AppShell";
-import { DeferredRender } from "@/components/ridelog/DeferredRender";
-import { InsightsSkeleton } from "@/components/ridelog/PageSkeleton";
 import { Card, SectionHeader } from "@/components/ridelog/primitives";
 import { useAppData, distanceInRange } from "@/lib/ridelog";
 import {
@@ -29,13 +26,7 @@ export const Route = createFileRoute("/insights")({
       { property: "og:description", content: "Beautiful interactive charts for your ride data." },
     ],
   }),
-  component: () => (
-    <AppShell>
-      <DeferredRender fallback={<InsightsSkeleton />}>
-        <Insights />
-      </DeferredRender>
-    </AppShell>
-  ),
+  component: Insights,
 });
 
 const RANGES = [

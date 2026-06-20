@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
-import { AppDataProvider, useAppData, type Vehicle, type AppData } from "@/lib/ridelog";
+import { useAppData, type Vehicle, type AppData } from "@/lib/ridelog";
 import { BottomNav } from "./BottomNav";
 import { Card } from "./primitives";
 import { Bike, Cloud, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -14,6 +14,18 @@ import {
 } from "@/lib/googleDrive";
 import { useSyncStatus, setSyncStatus, getSyncStatus } from "@/lib/syncState";
 
+/** Tab order used to compute slide direction */
+const TAB_ORDER: Record<string, number> = {
+  "/": 0,
+  "/trips": 1,
+  "/fuel": 2,
+  "/insights": 3,
+  "/settings": 4,
+};
+
+function getTabIndex(pathname: string) {
+  return TAB_ORDER[pathname] ?? -1;
+}
 
 function useAutoSync(data: AppData, ready: boolean) {
   const [autoSyncEnabled, setAutoSyncEnabledState] = useState(getAutoSyncEnabled());
@@ -148,6 +160,8 @@ function CloudSyncBadge({ onClick }: { onClick: () => void }) {
   );
 }
 
+let globalPrevPath: string | null = null;
+
 export function AppShell({ children }: { children: ReactNode }) {
   const store = useAppData();
   const { data, ready, update } = store;
@@ -155,6 +169,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   const { autoSyncEnabled } = useAutoSync(data, ready);
+
+  // Compute slide direction from tab order
+  const prevIdx = globalPrevPath !== null ? getTabIndex(globalPrevPath) : -1;
+  const curIdx = getTabIndex(location.pathname);
+  const isFirstRender = globalPrevPath === null;
+  const isSamePath = globalPrevPath === location.pathname;
+  const animClass = isFirstRender || isSamePath
+    ? ""
+    : curIdx === -1 || prevIdx === -1
+      ? "page-enter-fade"
+      : curIdx >= prevIdx
+        ? "page-enter-right"
+        : "page-enter-left";
+
+  // Track previous path after each render
+  useEffect(() => {
+    globalPrevPath = location.pathname;
+  });
 
   // Scroll content back to top on every route change
   useEffect(() => {
@@ -200,27 +232,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   const showBadge = isGoogleDriveConfigured() && autoSyncEnabled;
 
   return (
-    <AppDataProvider value={store}>
-      <div className="fixed inset-0 bg-background">
-        {/* Floating Auto-Sync Badge */}
-        {showBadge && (
-          <div className="pointer-events-none fixed top-4 inset-x-0 z-50 mx-auto max-w-md px-5 flex justify-end">
-            <CloudSyncBadge onClick={handleBadgeClick} />
-          </div>
-        )}
-
-        <div
-          ref={scrollRef}
-          className="h-full overflow-y-auto overflow-x-hidden"
-          style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom)" }}
-        >
-          <div key={location.pathname} className="mx-auto max-w-md fade-in-content">
-            {children}
-          </div>
+    <div className="fixed inset-0 bg-background">
+      {/* Floating Auto-Sync Badge */}
+      {showBadge && (
+        <div className="pointer-events-none fixed top-4 inset-x-0 z-50 mx-auto max-w-md px-5 flex justify-end">
+          <CloudSyncBadge onClick={handleBadgeClick} />
         </div>
-        <BottomNav />
+      )}
+
+      <div
+        ref={scrollRef}
+        className="h-full overflow-y-auto overflow-x-hidden"
+        style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom)" }}
+      >
+        {/* key forces remount on route change, replaying the CSS animation */}
+        <div key={location.pathname} className={`mx-auto max-w-md ${animClass}`}>
+          {children}
+        </div>
       </div>
-    </AppDataProvider>
+      <BottomNav />
+    </div>
   );
 }
 

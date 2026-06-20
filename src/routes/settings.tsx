@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { AppShell } from "@/components/ridelog/AppShell";
 import { Card, SectionHeader, EmptyState } from "@/components/ridelog/primitives";
 import { useAppData, uid, exportJson, importJson, saveData } from "@/lib/ridelog";
 import { cn } from "@/lib/utils";
@@ -42,11 +41,7 @@ export const Route = createFileRoute("/settings")({
       },
     ],
   }),
-  component: () => (
-    <AppShell>
-      <SettingsPage />
-    </AppShell>
-  ),
+  component: SettingsPage,
 });
 
 const MAINT_PRESETS = ["Service", "Oil Change", "Tyre Change", "Insurance", "PUC"] as const;

@@ -1,8 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { AppShell } from "@/components/ridelog/AppShell";
-import { DeferredRender } from "@/components/ridelog/DeferredRender";
-import { FuelSkeleton } from "@/components/ridelog/PageSkeleton";
 import { Card, EmptyState, SectionHeader, Stat } from "@/components/ridelog/primitives";
 import { useAppData, uid, averageMileage, type FuelEntry } from "@/lib/ridelog";
 import { Plus, Fuel as FuelIcon, Pencil, Calendar, Activity, Coins, Trash2 } from "lucide-react";
@@ -25,13 +22,7 @@ export const Route = createFileRoute("/fuel")({
       { property: "og:description", content: "Track every refill, price, and odometer reading." },
     ],
   }),
-  component: () => (
-    <AppShell>
-      <DeferredRender fallback={<FuelSkeleton />}>
-        <FuelPage />
-      </DeferredRender>
-    </AppShell>
-  ),
+  component: FuelPage,
 });
 
 function FuelPage() {

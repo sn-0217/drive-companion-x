@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { useAppDataStore, AppDataProvider } from "../lib/ridelog";
+import { AppShell } from "../components/ridelog/AppShell";
 
 function NotFoundComponent() {
   return (
@@ -133,68 +134,21 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-function AppSkeleton() {
-  return (
-    <div className="fixed inset-0 bg-background">
-      <div className="mx-auto max-w-md px-5 pt-12 pb-8 space-y-5 animate-pulse">
-        {/* Header Skeleton */}
-        <div className="flex items-center justify-between pb-2">
-          <div className="space-y-2">
-            <div className="h-3.5 w-24 rounded bg-surface" />
-            <div className="h-5 w-36 rounded bg-surface" />
-          </div>
-          <div className="h-8 w-8 rounded-full bg-surface" />
-        </div>
-
-        {/* Hero Card Skeleton */}
-        <div className="rounded-[28px] bg-surface h-48 w-full hairline" />
-
-        {/* Stats Grid Skeleton */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-[28px] bg-surface h-20 w-full hairline" />
-          <div className="rounded-[28px] bg-surface h-20 w-full hairline" />
-          <div className="rounded-[28px] bg-surface h-20 w-full hairline" />
-        </div>
-
-        {/* Middle Card Skeleton */}
-        <div className="rounded-[28px] bg-surface h-24 w-full hairline" />
-
-        {/* Lower list Skeleton */}
-        <div className="space-y-3">
-          <div className="h-4 w-28 rounded bg-surface" />
-          <div className="rounded-[28px] bg-surface h-16 w-full hairline" />
-          <div className="rounded-[28px] bg-surface h-16 w-full hairline" />
-        </div>
-      </div>
-
-      {/* Bottom Nav Skeleton */}
-      <div className="fixed bottom-0 inset-x-0 bg-surface/85 backdrop-blur-md border-t border-border/40 py-3.5 px-6 pb-[calc(1rem + env(safe-area-inset-bottom,12px))]">
-        <div className="mx-auto max-w-md flex justify-between items-center px-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center gap-1.5 opacity-40">
-              <div className="h-5 w-5 rounded bg-muted" />
-              <div className="h-2 w-10 rounded bg-muted" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const store = useAppDataStore();
 
   if (!store.ready) {
-    return <AppSkeleton />;
+    return <div className="fixed inset-0 bg-background" />;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       <AppDataProvider value={store}>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        <AppShell>
+          <Outlet />
+        </AppShell>
       </AppDataProvider>
     </QueryClientProvider>
   );
