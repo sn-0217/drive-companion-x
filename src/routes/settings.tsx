@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/ridelog/AppShell";
 import { Card, SectionHeader, EmptyState } from "@/components/ridelog/primitives";
 import { useAppData, uid, exportJson, importJson, saveData } from "@/lib/ridelog";
+import { cn } from "@/lib/utils";
 import {
   backupToGoogleDrive,
   getGoogleDriveBackupInfo,
@@ -101,57 +102,7 @@ function SettingsPage() {
       {/* Data */}
       <div className="mt-8 space-y-3">
         <SectionHeader title="Data" />
-        <Card className="space-y-3">
-          <GoogleDriveSync />
-          <Divider />
-          <button
-            onClick={() => {
-              const blob = new Blob([exportJson(data)], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `ridelog-backup-${Date.now()}.json`;
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
-            className="flex w-full items-center justify-between rounded-2xl bg-surface-elevated px-4 py-3 hairline"
-          >
-            <span className="flex items-center gap-3 text-sm text-foreground">
-              <Download className="h-4 w-4 text-primary" /> Export backup
-            </span>
-            <span className="text-xs text-muted-foreground">.json</span>
-          </button>
-          <label className="flex w-full cursor-pointer items-center justify-between rounded-2xl bg-surface-elevated px-4 py-3 hairline">
-            <span className="flex items-center gap-3 text-sm text-foreground">
-              <Upload className="h-4 w-4 text-primary" /> Restore backup
-            </span>
-            <input
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                try {
-                  const text = await f.text();
-                  saveData(importJson(text));
-                } catch {
-                  alert("Invalid backup file");
-                }
-              }}
-            />
-          </label>
-          <button
-            onClick={() => {
-              if (confirm("Reset all data? This cannot be undone.")) {
-                saveData({ vehicle: null, fuel: [], trips: [], maintenance: [] });
-              }
-            }}
-            className="flex w-full items-center gap-3 rounded-2xl bg-surface-elevated px-4 py-3 text-sm text-danger hairline"
-          >
-            <Trash2 className="h-4 w-4" /> Reset everything
-          </button>
-        </Card>
+        <GoogleDriveSync />
       </div>
 
       <p className="mt-8 text-center text-[11px] text-muted-foreground/70">
@@ -159,6 +110,53 @@ function SettingsPage() {
       </p>
     </div>
   );
+}
+
+interface ActionRowProps {
+  icon: React.ComponentType<{ className?: string }>;
+  iconColorClass?: string;
+  label: string;
+  description?: string;
+  action?: React.ReactNode;
+  onClick?: () => void;
+  danger?: boolean;
+}
+
+function ActionRow({
+  icon: Icon,
+  iconColorClass = "bg-primary/10 text-primary",
+  label,
+  description,
+  action,
+  onClick,
+  danger,
+}: ActionRowProps) {
+  const content = (
+    <div className="flex items-center justify-between py-1.5 w-full">
+      <div className="flex items-center gap-3.5">
+        <span className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
+          danger ? "bg-danger/10 text-danger" : iconColorClass
+        )}>
+          <Icon className="h-4.5 w-4.5" />
+        </span>
+        <div className="text-left">
+          <p className={cn("text-sm font-semibold", danger ? "text-danger" : "text-foreground")}>{label}</p>
+          {description && <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{description}</p>}
+        </div>
+      </div>
+      {action && <div className="flex items-center pl-3">{action}</div>}
+    </div>
+  );
+
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="w-full text-left outline-none block active:opacity-75 transition-opacity">
+        {content}
+      </button>
+    );
+  }
+  return <div className="w-full">{content}</div>;
 }
 
 function GoogleDriveSync() {
@@ -239,88 +237,186 @@ function GoogleDriveSync() {
   };
 
   return (
-    <div className="space-y-3">
-      <div>
-        <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Cloud className="h-4 w-4 text-primary" /> Google Drive sync
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Stores one hidden backup file in Google Drive app data. Free, private to this app.
-        </p>
-      </div>
-
-      {configured ? (
-        <div className="flex items-center gap-2 rounded-2xl bg-success/10 px-4 py-3 text-xs text-success hairline">
-          <CheckCircle2 className="h-4 w-4" /> Google sync is configured
-        </div>
-      ) : (
-        <div className="rounded-2xl bg-warning/10 px-4 py-3 text-xs text-warning hairline">
+    <Card className="space-y-4">
+      {/* If Google Drive is not configured, show warning block */}
+      {!configured && (
+        <div className="rounded-2xl bg-warning/10 px-4 py-3.5 text-xs text-warning hairline mb-1 leading-relaxed">
           Add <span className="num">VITE_GOOGLE_CLIENT_ID</span> to enable Google sync. Create a
           free OAuth Web client in Google Cloud and allow this app's URL.
         </div>
       )}
 
       {configured && (
-        <div className="rounded-2xl bg-surface-elevated px-4 py-3 hairline">
-          <Row label="Auto-sync changes">
-            <button
-              disabled={busy !== null}
-              onClick={handleToggleAutoSync}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
-                autoSync ? "bg-primary" : "bg-muted hairline"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  autoSync ? "translate-x-5" : "translate-x-0"
+        <>
+          {/* Header Row */}
+          <div className="flex items-center justify-between pb-1">
+            <div className="flex items-center gap-2.5">
+              <Cloud className="h-5 w-5 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Google Drive Sync</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-success/10 text-success border border-success/15">
+              Configured
+            </span>
+          </div>
+          <Divider />
+
+          {/* Auto Sync Toggle */}
+          <ActionRow
+            icon={Cloud}
+            label="Auto-sync changes"
+            description="Automatically backup logs in the background"
+            action={
+              <button
+                disabled={busy !== null}
+                onClick={handleToggleAutoSync}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                  autoSync ? "bg-primary" : "bg-muted hairline"
                 }`}
-              />
-            </button>
-          </Row>
-        </div>
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    autoSync ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            }
+          />
+          <Divider />
+
+          {/* Cloud Backup */}
+          <ActionRow
+            icon={Upload}
+            label="Cloud Backup"
+            description={
+              lastBackupAt
+                ? `Last synced: ${new Date(lastBackupAt).toLocaleString()}`
+                : "No backup found yet"
+            }
+            action={
+              <button
+                disabled={busy !== null}
+                onClick={() => run("backup")}
+                className="rounded-full bg-surface-elevated border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-elevated/80 transition active:scale-95 disabled:opacity-55 flex items-center gap-1.5 cursor-pointer"
+              >
+                {busy === "backup" ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />
+                ) : (
+                  <Cloud className="h-3.5 w-3.5 text-primary" />
+                )}
+                {busy === "backup" ? "Backing up..." : "Backup now"}
+              </button>
+            }
+          />
+          <Divider />
+
+          {/* Cloud Restore */}
+          <ActionRow
+            icon={Download}
+            label="Cloud Restore"
+            description="Replace local logs with cloud backup"
+            action={
+              <button
+                disabled={busy !== null}
+                onClick={() => run("restore")}
+                className="rounded-full bg-surface-elevated border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-surface-elevated/80 transition active:scale-95 disabled:opacity-55 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 text-primary ${busy === "restore" ? "animate-spin" : ""}`}
+                />
+                {busy === "restore" ? "Restoring..." : "Restore"}
+              </button>
+            }
+          />
+          <Divider />
+
+          {/* Check Cloud Status */}
+          <ActionRow
+            icon={RefreshCw}
+            label="Verify cloud backup"
+            description="Verify current backup status in Google Drive"
+            action={
+              <button
+                disabled={busy !== null}
+                onClick={() => run("check")}
+                className="rounded-full bg-surface-elevated border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-surface-elevated/80 transition active:scale-95 disabled:opacity-55 flex items-center gap-1.5 cursor-pointer"
+              >
+                {busy === "check" && <RefreshCw className="h-3.5 w-3.5 animate-spin text-primary" />}
+                Check
+              </button>
+            }
+          />
+          <Divider />
+        </>
       )}
 
-      {lastBackupAt && (
-        <p className="text-xs text-muted-foreground">
-          Last backup:{" "}
-          <span className="num text-foreground">{new Date(lastBackupAt).toLocaleString()}</span>
-        </p>
-      )}
+      {/* Local Export */}
+      <ActionRow
+        icon={Download}
+        iconColorClass="bg-primary/10 text-primary"
+        label="Export to file"
+        description="Download your data as a local JSON file"
+        onClick={() => {
+          const blob = new Blob([exportJson(data)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `ridelog-backup-${Date.now()}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        action={
+          <span className="text-xs num text-muted-foreground bg-surface-elevated px-2.5 py-1 rounded-lg hairline">
+            .json
+          </span>
+        }
+      />
+      <Divider />
 
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          disabled={!configured || busy !== null}
-          onClick={() => run("backup")}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40"
-        >
-          {busy === "backup" ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Cloud className="h-4 w-4" />
-          )}
-          {busy === "backup" ? "Backing up..." : "Backup"}
-        </button>
-        <button
-          disabled={!configured || busy !== null}
-          onClick={() => run("restore")}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-surface-elevated px-4 py-3 text-sm font-semibold text-foreground hairline disabled:opacity-40"
-        >
-          <RefreshCw className={`h-4 w-4 ${busy === "restore" ? "animate-spin" : ""}`} />
-          {busy === "restore" ? "Restoring..." : "Restore"}
-        </button>
-      </div>
+      {/* Local Import */}
+      <label className="block cursor-pointer">
+        <ActionRow
+          icon={Upload}
+          iconColorClass="bg-primary/10 text-primary"
+          label="Import from file"
+          description="Load logs from a previously saved JSON file"
+          action={
+            <span className="text-xs text-muted-foreground bg-surface-elevated px-2.5 py-1 rounded-lg hairline">
+              Upload
+            </span>
+          }
+        />
+        <input
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            try {
+              const text = await f.text();
+              saveData(importJson(text));
+            } catch {
+              alert("Invalid backup file");
+            }
+          }}
+        />
+      </label>
+      <Divider />
 
-      <button
-        disabled={!configured || busy !== null}
-        onClick={() => run("check")}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-surface-elevated px-4 py-3 text-xs font-medium text-muted-foreground hairline disabled:opacity-40"
-      >
-        {busy === "check" && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-        {busy === "check" ? "Checking cloud backup..." : "Check cloud backup"}
-      </button>
-
-      {message && <p className="text-xs text-muted-foreground">{message}</p>}
-    </div>
+      {/* Reset everything */}
+      <ActionRow
+        icon={Trash2}
+        label="Reset everything"
+        description="Delete all logs, vehicle configurations, and profile"
+        onClick={() => {
+          if (confirm("Reset all data? This cannot be undone.")) {
+            saveData({ vehicle: null, fuel: [], trips: [], maintenance: [] });
+          }
+        }}
+        danger
+      />
+      {message && <p className="text-[11px] text-muted-foreground mt-2">{message}</p>}
+    </Card>
   );
 }
 function MaintenanceList() {
