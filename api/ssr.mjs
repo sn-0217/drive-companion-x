@@ -1,18 +1,22 @@
-import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { join, dirname } from "node:path";
 
-// Vercel serverless function that wraps the TanStack Start / Nitro SSR handler.
+// Vercel serverless function that wraps the TanStack Start SSR handler.
 // The built server uses the WinterCG Fetch API interface, so we bridge it to
 // Vercel's Node.js (req/res) interface here.
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Resolve the server entry relative to this file (api/ -> dist/server/)
+const serverPath = join(__dirname, "..", "dist", "server", "server.js");
 
 let handlerPromise;
 
 async function getHandler() {
   if (!handlerPromise) {
-    handlerPromise = import("../../dist/server/server.js").then(
-      (m) => m.default ?? m,
-    );
+    // pathToFileURL is required for dynamic import on Windows (file:// scheme needed)
+    handlerPromise = import(pathToFileURL(serverPath).href).then((m) => m.default ?? m);
   }
   return handlerPromise;
 }
@@ -77,8 +81,9 @@ export default async function handler(req, res) {
     const fetchRes = await server.fetch(fetchReq, process.env, {});
     await fromFetchResponse(fetchRes, res);
   } catch (err) {
-    console.error("SSR handler error:", err);
+    console.error("[SSR] handler error:", err?.stack ?? err);
     res.statusCode = 500;
-    res.end("Internal Server Error");
+    res.setHeader("content-type", "text/plain");
+    res.end(`Internal Server Error\n\n${err?.message ?? err}`);
   }
 }
