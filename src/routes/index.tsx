@@ -62,9 +62,6 @@ function Dashboard() {
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{v.name}</p>
           <p className="text-sm text-foreground/80">Good ride ahead</p>
         </div>
-        <span className="flex h-9 items-center gap-2 rounded-full bg-surface px-3 text-[11px] text-success">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" /> Offline
-        </span>
       </div>
 
       {/* Hero odometer */}
