@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { AppDataProvider, useAppDataStore, type Vehicle } from "@/lib/ridelog";
 import { BottomNav } from "./BottomNav";
 import { Card } from "./primitives";
 import { Bike, Cloud, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useLocation } from "@tanstack/react-router";
 import {
   isGoogleDriveConfigured,
   restoreFromGoogleDrive,
@@ -11,9 +12,16 @@ import {
 export function AppShell({ children }: { children: ReactNode }) {
   const store = useAppDataStore();
   const { data, ready, update } = store;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  // Scroll content back to top on every route change
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  }, [location.pathname]);
 
   if (!ready) {
-    return <div className="min-h-screen bg-background" />;
+    return <div className="fixed inset-0 bg-background" />;
   }
 
   if (!data.vehicle) {
@@ -26,8 +34,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <AppDataProvider value={store}>
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-md pb-28">{children}</div>
+      {/*
+        Fixed-viewport shell: the outer div locks to the screen dimensions so
+        no layout shift occurs when pages with different content heights mount.
+        The inner div scrolls independently — the bottom nav never moves.
+      */}
+      <div className="fixed inset-0 bg-background">
+        <div
+          ref={scrollRef}
+          className="h-full overflow-y-auto overflow-x-hidden"
+          style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom)" }}
+        >
+          <div className="mx-auto max-w-md">{children}</div>
+        </div>
         <BottomNav />
       </div>
     </AppDataProvider>
