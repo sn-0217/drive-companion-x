@@ -172,7 +172,6 @@ function FuelPage() {
           <Stat
             label="Spent"
             value={totalSpend > 0 ? `₹${totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
-            unit="total"
           />
         </div>
       )}
