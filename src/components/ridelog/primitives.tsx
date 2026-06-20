@@ -29,11 +29,13 @@ export function Stat({
   value,
   unit,
   accent,
+  className,
 }: {
   label: string;
   value: string | number;
   unit?: string;
   accent?: "primary" | "success" | "warning" | "danger";
+  className?: string;
 }) {
   const tone =
     accent === "success"
@@ -46,11 +48,11 @@ export function Stat({
             ? "text-primary"
             : "text-foreground";
   return (
-    <Card className="flex flex-col gap-2">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
-      <div className="flex items-baseline gap-1.5">
-        <span className={cn("num text-2xl font-semibold", tone)}>{value}</span>
-        {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+    <Card className={cn("flex flex-col gap-1 px-3 py-3.5 md:p-5", className)}>
+      <span className="text-[10px] md:text-[11px] uppercase tracking-[0.14em] text-muted-foreground truncate w-full block">{label}</span>
+      <div className="flex items-baseline gap-1 mt-0.5 flex-wrap">
+        <span className={cn("num text-xl md:text-2xl font-semibold leading-none", tone)}>{value}</span>
+        {unit && <span className="text-[10px] md:text-xs text-muted-foreground font-medium">{unit}</span>}
       </div>
     </Card>
   );

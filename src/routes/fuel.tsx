@@ -324,60 +324,71 @@ function FuelPage() {
           fuelHistory.map(({ entry: f, mileage, isBaseline }) => {
             const isGoodMileage = mileage !== null && mileage >= expectedMileage;
             return (
-              <Card key={f.id} className="flex items-center justify-between transition-all">
-                <div className="flex items-center gap-3.5">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <FuelIcon className="h-4.5 w-4.5" />
-                  </span>
-                  <div>
-                    <p className="num text-base font-semibold text-foreground">
-                      {f.liters.toFixed(2)} L · ₹{f.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(f.date).toLocaleDateString()} · @ {f.odometer.toLocaleString()} km · ₹{f.pricePerLiter.toFixed(1)}/L
-                    </p>
-                    
-                    {/* Dynamic Mileage Badge */}
-                    <div className="mt-2 flex">
-                      {mileage ? (
-                        <span className={cn(
-                          "num inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
-                          isGoodMileage 
-                            ? "bg-success/10 text-success border-success/15" 
-                            : "bg-warning/10 text-warning border-warning/15"
-                        )}>
-                          {mileage.toFixed(1)} km/L
-                        </span>
-                      ) : isBaseline ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-surface-elevated text-muted-foreground border border-border">
-                          Baseline fill
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-surface-elevated text-muted-foreground border border-border">
-                          Pending mileage
-                        </span>
-                      )}
+              <Card key={f.id} className="space-y-3 p-4 transition-all">
+                {/* Top row: Fuel details & Actions */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <FuelIcon className="h-4.5 w-4.5" />
+                    </span>
+                    <div>
+                      <p className="num text-base font-semibold text-foreground leading-none">
+                        {f.liters.toFixed(2)} L · ₹{f.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        {new Date(f.date).toLocaleDateString()} · @ {f.odometer.toLocaleString()} km
+                      </p>
                     </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => edit(f)}
+                      className="p-1.5 text-muted-foreground hover:text-primary transition rounded-lg hover:bg-surface-elevated hairline cursor-pointer"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Delete this fuel fill log?")) {
+                          update((d) => ({ ...d, fuel: d.fuel.filter((x) => x.id !== f.id) }));
+                        }
+                      }}
+                      className="p-1.5 text-muted-foreground/70 hover:text-danger transition rounded-lg hover:bg-surface-elevated hairline cursor-pointer"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pl-2">
-                  <button
-                    onClick={() => edit(f)}
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition"
-                  >
-                    <Pencil className="h-3 w-3" /> Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Delete this fuel fill log?")) {
-                        update((d) => ({ ...d, fuel: d.fuel.filter((x) => x.id !== f.id) }));
-                      }
-                    }}
-                    className="text-xs text-muted-foreground/70 hover:text-danger transition"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                {/* Bottom row: Price rate & Mileage status badge */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                  <span className="text-[10px] text-muted-foreground num font-medium">
+                    Rate: ₹{f.pricePerLiter.toFixed(2)} / L
+                  </span>
+
+                  {/* Mileage Badge */}
+                  {mileage ? (
+                    <span className={cn(
+                      "num px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                      isGoodMileage 
+                        ? "bg-success/10 text-success border-success/15" 
+                        : "bg-warning/10 text-warning border-warning/15"
+                    )}>
+                      {mileage.toFixed(1)} km/L
+                    </span>
+                  ) : isBaseline ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-surface-elevated text-muted-foreground border border-border">
+                      Baseline fill
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-surface-elevated text-muted-foreground border border-border">
+                      Pending mileage
+                    </span>
+                  )}
                 </div>
               </Card>
             );
