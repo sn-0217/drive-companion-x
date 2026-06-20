@@ -13,19 +13,8 @@ import {
   getAutoSyncEnabled,
 } from "@/lib/googleDrive";
 import { useSyncStatus, setSyncStatus, getSyncStatus } from "@/lib/syncState";
+import { PageSkeleton } from "./PageSkeleton";
 
-/** Tab order used to compute slide direction */
-const TAB_ORDER: Record<string, number> = {
-  "/": 0,
-  "/trips": 1,
-  "/fuel": 2,
-  "/insights": 3,
-  "/settings": 4,
-};
-
-function getTabIndex(pathname: string) {
-  return TAB_ORDER[pathname] ?? -1;
-}
 
 function useAutoSync(data: AppData, ready: boolean) {
   const [autoSyncEnabled, setAutoSyncEnabledState] = useState(getAutoSyncEnabled());
@@ -160,8 +149,6 @@ function CloudSyncBadge({ onClick }: { onClick: () => void }) {
   );
 }
 
-let globalPrevPath: string | null = null;
-
 export function AppShell({ children }: { children: ReactNode }) {
   const store = useAppData();
   const { data, ready, update } = store;
@@ -169,24 +156,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   const { autoSyncEnabled } = useAutoSync(data, ready);
+  const [isTransitioning, setIsTransitioning] = useState(true);
 
-  // Compute slide direction from tab order
-  const prevIdx = globalPrevPath !== null ? getTabIndex(globalPrevPath) : -1;
-  const curIdx = getTabIndex(location.pathname);
-  const isFirstRender = globalPrevPath === null;
-  const isSamePath = globalPrevPath === location.pathname;
-  const animClass = isFirstRender || isSamePath
-    ? ""
-    : curIdx === -1 || prevIdx === -1
-      ? "page-enter-fade"
-      : curIdx >= prevIdx
-        ? "page-enter-right"
-        : "page-enter-left";
-
-  // Track previous path after each render
+  // Trigger skeleton loading state on route change
   useEffect(() => {
-    globalPrevPath = location.pathname;
-  });
+    setIsTransitioning(true);
+    const timer = setTimeout(() => {
+      setIsTransitioning(false);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
 
   // Scroll content back to top on every route change
   useEffect(() => {
@@ -246,9 +225,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="h-full overflow-y-auto overflow-x-hidden"
           style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom)" }}
         >
-          {/* key forces remount on route change, replaying the CSS animation */}
-          <div key={location.pathname} className={`mx-auto max-w-md ${animClass}`}>
-            {children}
+          <div className="mx-auto max-w-md">
+            {isTransitioning ? (
+              <PageSkeleton pathname={location.pathname} />
+            ) : (
+              <div className="fade-in-content">
+                {children}
+              </div>
+            )}
           </div>
         </div>
         <BottomNav />
