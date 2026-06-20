@@ -5,6 +5,7 @@ import { Card, EmptyState, SectionHeader } from "@/components/ridelog/primitives
 import { currentOdometer, useAppData, uid, type Trip } from "@/lib/ridelog";
 import { Play, Square, Plus, Navigation, Hand, Radio, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { IllustrationTrips } from "@/components/ridelog/illustrations";
 
 export const Route = createFileRoute("/trips")({
   head: () => ({
@@ -109,7 +110,11 @@ function TripsPage() {
       <div className="mt-8 space-y-3">
         <SectionHeader title="Recent rides" />
         {data.trips.length === 0 ? (
-          <EmptyState title="No rides yet" hint="Your logged rides will appear here." />
+          <EmptyState
+            illustration={<IllustrationTrips />}
+            title="No rides yet"
+            hint="Log your first ride using Manual, GPS, or Auto mode above."
+          />
         ) : (
           [...data.trips]
             .sort((a, b) => b.date - a.date)

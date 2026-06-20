@@ -4,6 +4,7 @@ import { AppShell } from "@/components/ridelog/AppShell";
 import { Card, EmptyState, SectionHeader } from "@/components/ridelog/primitives";
 import { useAppData, uid, type FuelEntry } from "@/lib/ridelog";
 import { Plus, Fuel as FuelIcon, Pencil } from "lucide-react";
+import { IllustrationFuel } from "@/components/ridelog/illustrations";
 
 export const Route = createFileRoute("/fuel")({
   head: () => ({
@@ -134,7 +135,11 @@ function FuelPage() {
       <div className="mt-6 space-y-3">
         <SectionHeader title="History" />
         {data.fuel.length === 0 ? (
-          <EmptyState title="No fills yet" hint="Add your first fill to start tracking mileage." />
+          <EmptyState
+            illustration={<IllustrationFuel />}
+            title="No fills yet"
+            hint="Add your first fill to start tracking mileage and spend."
+          />
         ) : (
           fuelHistory.map(({ entry: f, mileage, isBaseline }) => (
             <Card key={f.id} className="flex items-center justify-between">

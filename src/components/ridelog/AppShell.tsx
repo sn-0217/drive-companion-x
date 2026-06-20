@@ -9,11 +9,42 @@ import {
   restoreFromGoogleDrive,
 } from "@/lib/googleDrive";
 
+/** Tab order used to compute slide direction */
+const TAB_ORDER: Record<string, number> = {
+  "/": 0,
+  "/trips": 1,
+  "/fuel": 2,
+  "/insights": 3,
+  "/settings": 4,
+};
+
+function getTabIndex(pathname: string) {
+  return TAB_ORDER[pathname] ?? -1;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const store = useAppDataStore();
   const { data, ready, update } = store;
   const scrollRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const prevPathRef = useRef<string | null>(null);
+
+  // Compute slide direction from tab order
+  const prevIdx = prevPathRef.current !== null ? getTabIndex(prevPathRef.current) : -1;
+  const curIdx = getTabIndex(location.pathname);
+  const isFirstRender = prevPathRef.current === null;
+  const animClass = isFirstRender
+    ? ""
+    : curIdx === -1 || prevIdx === -1
+      ? "page-enter-fade"
+      : curIdx >= prevIdx
+        ? "page-enter-right"
+        : "page-enter-left";
+
+  // Track previous path after each render
+  useEffect(() => {
+    prevPathRef.current = location.pathname;
+  });
 
   // Scroll content back to top on every route change
   useEffect(() => {
@@ -45,7 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="h-full overflow-y-auto overflow-x-hidden"
           style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom)" }}
         >
-          <div className="mx-auto max-w-md">{children}</div>
+          {/* key forces remount on route change, replaying the CSS animation */}
+          <div key={location.pathname} className={`mx-auto max-w-md ${animClass}`}>
+            {children}
+          </div>
         </div>
         <BottomNav />
       </div>

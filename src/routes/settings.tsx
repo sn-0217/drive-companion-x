@@ -19,6 +19,7 @@ import {
   Cloud,
   RefreshCw,
 } from "lucide-react";
+import { IllustrationMaintenance } from "@/components/ridelog/illustrations";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -275,7 +276,11 @@ function MaintenanceList() {
   return (
     <>
       {data.maintenance.length === 0 && !adding && (
-        <EmptyState title="No reminders yet" hint="Add a service or document reminder." />
+        <EmptyState
+          illustration={<IllustrationMaintenance />}
+          title="No reminders yet"
+          hint="Track service intervals, oil changes, tyres, insurance and more."
+        />
       )}
       {data.maintenance.map((m) => {
         const dueIn =

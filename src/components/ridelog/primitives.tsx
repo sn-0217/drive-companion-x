@@ -65,11 +65,20 @@ export function SectionHeader({ title, action }: { title: string; action?: React
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({
+  title,
+  hint,
+  illustration,
+}: {
+  title: string;
+  hint?: string;
+  illustration?: ReactNode;
+}) {
   return (
-    <Card className="text-center">
-      <p className="text-sm text-foreground">{title}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+    <Card className="py-8 text-center">
+      {illustration && <div className="mb-4">{illustration}</div>}
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
     </Card>
   );
 }
