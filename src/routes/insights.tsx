@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/ridelog/AppShell";
+import { DeferredRender } from "@/components/ridelog/DeferredRender";
+import { InsightsSkeleton } from "@/components/ridelog/PageSkeleton";
 import { Card, SectionHeader } from "@/components/ridelog/primitives";
 import { useAppData, distanceInRange } from "@/lib/ridelog";
 import {
@@ -29,7 +31,9 @@ export const Route = createFileRoute("/insights")({
   }),
   component: () => (
     <AppShell>
-      <Insights />
+      <DeferredRender fallback={<InsightsSkeleton />}>
+        <Insights />
+      </DeferredRender>
     </AppShell>
   ),
 });

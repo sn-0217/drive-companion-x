@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { AppShell } from "@/components/ridelog/AppShell";
+import { DeferredRender } from "@/components/ridelog/DeferredRender";
+import { TripsSkeleton } from "@/components/ridelog/PageSkeleton";
 import { Card, EmptyState, SectionHeader } from "@/components/ridelog/primitives";
 import { currentOdometer, useAppData, uid, type Trip } from "@/lib/ridelog";
 import { Play, Square, Plus, Navigation, Hand, Radio, Pencil } from "lucide-react";
@@ -18,7 +20,9 @@ export const Route = createFileRoute("/trips")({
   }),
   component: () => (
     <AppShell>
-      <TripsPage />
+      <DeferredRender fallback={<TripsSkeleton />}>
+        <TripsPage />
+      </DeferredRender>
     </AppShell>
   ),
 });

@@ -22,7 +22,7 @@ export function PageSkeleton({ pathname }: PageSkeletonProps) {
   }
 }
 
-function DashboardSkeleton() {
+export function DashboardSkeleton() {
   return (
     <div className="px-5 pt-12 pb-8 space-y-4 animate-pulse">
       {/* Header */}
@@ -86,7 +86,7 @@ function DashboardSkeleton() {
   );
 }
 
-function FuelSkeleton() {
+export function FuelSkeleton() {
   return (
     <div className="px-5 pt-12 pb-8 space-y-4 animate-pulse">
       {/* Header */}
@@ -122,7 +122,7 @@ function FuelSkeleton() {
   );
 }
 
-function TripsSkeleton() {
+export function TripsSkeleton() {
   return (
     <div className="px-5 pt-12 pb-8 space-y-4 animate-pulse">
       {/* Header */}
@@ -152,7 +152,7 @@ function TripsSkeleton() {
   );
 }
 
-function InsightsSkeleton() {
+export function InsightsSkeleton() {
   return (
     <div className="px-5 pt-12 pb-8 space-y-4 animate-pulse">
       {/* Header */}
@@ -184,7 +184,7 @@ function InsightsSkeleton() {
   );
 }
 
-function SettingsSkeleton() {
+export function SettingsSkeleton() {
   return (
     <div className="px-5 pt-12 pb-8 space-y-5 animate-pulse">
       {/* Header */}

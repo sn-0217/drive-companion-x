@@ -13,7 +13,6 @@ import {
   getAutoSyncEnabled,
 } from "@/lib/googleDrive";
 import { useSyncStatus, setSyncStatus, getSyncStatus } from "@/lib/syncState";
-import { PageSkeleton } from "./PageSkeleton";
 
 
 function useAutoSync(data: AppData, ready: boolean) {
@@ -156,16 +155,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   const { autoSyncEnabled } = useAutoSync(data, ready);
-  const [isTransitioning, setIsTransitioning] = useState(true);
-
-  // Trigger skeleton loading state on route change
-  useEffect(() => {
-    setIsTransitioning(true);
-    const timer = setTimeout(() => {
-      setIsTransitioning(false);
-    }, 180);
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
 
   // Scroll content back to top on every route change
   useEffect(() => {
@@ -225,14 +214,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="h-full overflow-y-auto overflow-x-hidden"
           style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom)" }}
         >
-          <div className="mx-auto max-w-md">
-            {isTransitioning ? (
-              <PageSkeleton pathname={location.pathname} />
-            ) : (
-              <div className="fade-in-content">
-                {children}
-              </div>
-            )}
+          <div key={location.pathname} className="mx-auto max-w-md fade-in-content">
+            {children}
           </div>
         </div>
         <BottomNav />

@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/ridelog/AppShell";
+import { DeferredRender } from "@/components/ridelog/DeferredRender";
+import { DashboardSkeleton } from "@/components/ridelog/PageSkeleton";
 import { Card, Stat } from "@/components/ridelog/primitives";
 import {
   useAppData,
@@ -50,7 +52,9 @@ export const Route = createFileRoute("/")({
 function Page() {
   return (
     <AppShell>
-      <Dashboard />
+      <DeferredRender fallback={<DashboardSkeleton />}>
+        <Dashboard />
+      </DeferredRender>
     </AppShell>
   );
 }
