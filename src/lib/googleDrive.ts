@@ -5,6 +5,45 @@ const SCOPE = "https://www.googleapis.com/auth/drive.appdata";
 const BACKUP_FILE_NAME = "ridelog-pro-backup.json";
 const MIME = "application/json";
 
+const TOKEN_KEY = "ridelog-pro:google-token";
+const EXPIRES_KEY = "ridelog-pro:google-token-expires";
+const AUTO_SYNC_KEY = "ridelog-pro:auto-sync";
+
+export function getCachedToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  const expiresAt = sessionStorage.getItem(EXPIRES_KEY);
+  if (!token || !expiresAt) return null;
+  if (Date.now() > Number(expiresAt)) {
+    clearCachedToken();
+    return null;
+  }
+  return token;
+}
+
+export function setCachedToken(token: string, expiresInSeconds: number = 3600) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(EXPIRES_KEY, String(Date.now() + expiresInSeconds * 1000));
+}
+
+export function clearCachedToken() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(EXPIRES_KEY);
+}
+
+export function getAutoSyncEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(AUTO_SYNC_KEY) === "true";
+}
+
+export function setAutoSyncEnabled(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(AUTO_SYNC_KEY, String(enabled));
+  window.dispatchEvent(new CustomEvent("ridelog:autosync_change"));
+}
+
 type TokenResponse = {
   access_token?: string;
   error?: string;
@@ -94,7 +133,12 @@ export async function getGoogleDriveBackupInfo() {
   return findBackupFile(token);
 }
 
-async function requestDriveToken(): Promise<string> {
+export async function requestDriveToken(options?: { forcePrompt?: boolean }): Promise<string> {
+  const cached = getCachedToken();
+  if (cached && !options?.forcePrompt) {
+    return cached;
+  }
+
   const clientId = getGoogleClientId();
   if (!clientId) {
     throw new Error("Missing VITE_GOOGLE_CLIENT_ID. Add it to your hosting environment first.");
@@ -114,6 +158,7 @@ async function requestDriveToken(): Promise<string> {
       scope: SCOPE,
       callback: (response) => {
         if (response.access_token) {
+          setCachedToken(response.access_token, 3600);
           resolve(response.access_token);
         } else {
           reject(
@@ -123,7 +168,7 @@ async function requestDriveToken(): Promise<string> {
       },
     });
 
-    client.requestAccessToken({ prompt: "consent" });
+    client.requestAccessToken(options?.forcePrompt ? { prompt: "consent" } : { prompt: "" });
   });
 }
 
@@ -205,6 +250,11 @@ async function driveFetch(url: string, token: string, init: RequestInit = {}) {
       ...init.headers,
     },
   });
+
+  if (response.status === 401) {
+    clearCachedToken();
+    window.dispatchEvent(new CustomEvent("ridelog:sync_unauthorized"));
+  }
 
   if (!response.ok) {
     let message = `Google Drive request failed (${response.status}).`;

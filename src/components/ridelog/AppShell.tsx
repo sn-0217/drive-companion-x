@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
-import { AppDataProvider, useAppDataStore, type Vehicle } from "@/lib/ridelog";
+import { AppDataProvider, useAppDataStore, type Vehicle, type AppData } from "@/lib/ridelog";
 import { BottomNav } from "./BottomNav";
 import { Card } from "./primitives";
 import { Bike, Cloud, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -7,7 +7,12 @@ import { useLocation } from "@tanstack/react-router";
 import {
   isGoogleDriveConfigured,
   restoreFromGoogleDrive,
+  backupToGoogleDrive,
+  requestDriveToken,
+  getCachedToken,
+  getAutoSyncEnabled,
 } from "@/lib/googleDrive";
+import { useSyncStatus, setSyncStatus, getSyncStatus } from "@/lib/syncState";
 
 /** Tab order used to compute slide direction */
 const TAB_ORDER: Record<string, number> = {
@@ -22,12 +27,147 @@ function getTabIndex(pathname: string) {
   return TAB_ORDER[pathname] ?? -1;
 }
 
+function useAutoSync(data: AppData, ready: boolean) {
+  const [autoSyncEnabled, setAutoSyncEnabledState] = useState(getAutoSyncEnabled());
+  const initialDataRef = useRef<AppData | null>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const onSyncChange = () => {
+      setAutoSyncEnabledState(getAutoSyncEnabled());
+    };
+    window.addEventListener("ridelog:autosync_change", onSyncChange);
+    return () => window.removeEventListener("ridelog:autosync_change", onSyncChange);
+  }, []);
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setSyncStatus("unauthorized");
+    };
+    window.addEventListener("ridelog:sync_unauthorized", onUnauthorized);
+    return () => window.removeEventListener("ridelog:sync_unauthorized", onUnauthorized);
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !data.vehicle || !isGoogleDriveConfigured()) return;
+
+    if (!initialDataRef.current) {
+      initialDataRef.current = data;
+      if (autoSyncEnabled) {
+        const token = getCachedToken();
+        if (!token) {
+          setSyncStatus("unauthorized");
+        } else {
+          setSyncStatus("idle");
+        }
+      }
+      return;
+    }
+
+    if (JSON.stringify(initialDataRef.current) === JSON.stringify(data)) {
+      return;
+    }
+
+    initialDataRef.current = data;
+
+    if (!autoSyncEnabled) return;
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    setSyncStatus("syncing");
+
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const token = getCachedToken();
+        if (!token) {
+          setSyncStatus("unauthorized");
+          return;
+        }
+        await backupToGoogleDrive(data);
+        setSyncStatus("synced");
+        setTimeout(() => {
+          setSyncStatus("idle");
+        }, 2000);
+      } catch (err) {
+        console.error("Auto-sync background backup error:", err);
+        const token = getCachedToken();
+        if (!token) {
+          setSyncStatus("unauthorized");
+        } else {
+          setSyncStatus("error", err instanceof Error ? err.message : "Sync failed");
+        }
+      }
+    }, 3000);
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [data, ready, autoSyncEnabled]);
+
+  return { autoSyncEnabled };
+}
+
+function CloudSyncBadge({ onClick }: { onClick: () => void }) {
+  const { status } = useSyncStatus();
+
+  if (status === "idle") {
+    return (
+      <div 
+        title="Auto-sync active"
+        className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-elevated/40 backdrop-blur-md text-muted-foreground/30 border border-transparent hover:text-muted-foreground/60 transition-all duration-300 pointer-events-auto cursor-default"
+      >
+        <Cloud className="h-3.5 w-3.5" />
+      </div>
+    );
+  }
+
+  const styles = {
+    syncing: "text-primary bg-primary/10 border-primary/20",
+    synced: "text-success bg-success/10 border-success/20",
+    error: "text-danger bg-danger/10 border-danger/20 cursor-pointer animate-pulse",
+    unauthorized: "text-warning bg-warning/10 border-warning/20 cursor-pointer animate-pulse",
+  }[status];
+
+  const labels = {
+    syncing: "Syncing...",
+    synced: "Synced",
+    error: "Sync failed · Retry",
+    unauthorized: "Sign in to sync",
+  }[status];
+
+  const icons = {
+    syncing: <Loader2 className="h-3 w-3 animate-spin" />,
+    synced: <CheckCircle2 className="h-3 w-3" />,
+    error: <AlertCircle className="h-3 w-3" />,
+    unauthorized: <Cloud className="h-3 w-3" />,
+  }[status];
+
+  return (
+    <button
+      onClick={(e) => {
+        if (status === "error" || status === "unauthorized") {
+          onClick();
+        }
+      }}
+      disabled={status === "syncing" || status === "synced"}
+      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide backdrop-blur-md transition-all duration-300 hairline shadow-lg pointer-events-auto ${styles}`}
+    >
+      {icons}
+      <span>{labels}</span>
+    </button>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const store = useAppDataStore();
   const { data, ready, update } = store;
   const scrollRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const prevPathRef = useRef<string | null>(null);
+
+  const { autoSyncEnabled } = useAutoSync(data, ready);
 
   // Compute slide direction from tab order
   const prevIdx = prevPathRef.current !== null ? getTabIndex(prevPathRef.current) : -1;
@@ -51,6 +191,30 @@ export function AppShell({ children }: { children: ReactNode }) {
     scrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [location.pathname]);
 
+  const handleBadgeClick = async () => {
+    const status = getSyncStatus();
+    if (status === "unauthorized") {
+      setSyncStatus("syncing");
+      try {
+        await requestDriveToken({ forcePrompt: true });
+        await backupToGoogleDrive(data);
+        setSyncStatus("synced");
+        setTimeout(() => setSyncStatus("idle"), 2000);
+      } catch (err) {
+        setSyncStatus("unauthorized", err instanceof Error ? err.message : "Auth failed");
+      }
+    } else if (status === "error") {
+      setSyncStatus("syncing");
+      try {
+        await backupToGoogleDrive(data);
+        setSyncStatus("synced");
+        setTimeout(() => setSyncStatus("idle"), 2000);
+      } catch (err) {
+        setSyncStatus("error", err instanceof Error ? err.message : "Sync failed");
+      }
+    }
+  };
+
   if (!ready) {
     return <div className="fixed inset-0 bg-background" />;
   }
@@ -63,14 +227,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
+  const showBadge = isGoogleDriveConfigured() && autoSyncEnabled;
+
   return (
     <AppDataProvider value={store}>
-      {/*
-        Fixed-viewport shell: the outer div locks to the screen dimensions so
-        no layout shift occurs when pages with different content heights mount.
-        The inner div scrolls independently — the bottom nav never moves.
-      */}
       <div className="fixed inset-0 bg-background">
+        {/* Floating Auto-Sync Badge */}
+        {showBadge && (
+          <div className="pointer-events-none fixed top-4 inset-x-0 z-50 mx-auto max-w-md px-5 flex justify-end">
+            <CloudSyncBadge onClick={handleBadgeClick} />
+          </div>
+        )}
+
         <div
           ref={scrollRef}
           className="h-full overflow-y-auto overflow-x-hidden"

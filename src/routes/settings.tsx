@@ -8,7 +8,12 @@ import {
   getGoogleDriveBackupInfo,
   isGoogleDriveConfigured,
   restoreFromGoogleDrive,
+  getAutoSyncEnabled,
+  setAutoSyncEnabled,
+  requestDriveToken,
+  getCachedToken,
 } from "@/lib/googleDrive";
+import { setSyncStatus } from "@/lib/syncState";
 import {
   CheckCircle2,
   Download,
@@ -161,7 +166,40 @@ function GoogleDriveSync() {
   const [busy, setBusy] = useState<"backup" | "restore" | "check" | null>(null);
   const [message, setMessage] = useState("");
   const [lastBackupAt, setLastBackupAt] = useState("");
+  const [autoSync, setAutoSync] = useState(getAutoSyncEnabled());
   const configured = isGoogleDriveConfigured();
+
+  const handleToggleAutoSync = async () => {
+    if (autoSync) {
+      setAutoSyncEnabled(false);
+      setAutoSync(false);
+      setSyncStatus("idle");
+      setMessage("Auto-sync disabled.");
+    } else {
+      setBusy("backup");
+      setMessage("Requesting Google authorization...");
+      try {
+        await requestDriveToken({ forcePrompt: true });
+        setAutoSyncEnabled(true);
+        setAutoSync(true);
+        setSyncStatus("syncing");
+        const info = await backupToGoogleDrive(data);
+        const updatedAt = info.modifiedTime ?? new Date().toISOString();
+        setLastBackupAt(updatedAt);
+        setSyncStatus("synced");
+        setTimeout(() => setSyncStatus("idle"), 2000);
+        setMessage("Auto-sync active · First backup successful.");
+      } catch (err) {
+        console.error("Failed to enable auto-sync:", err);
+        setAutoSyncEnabled(false);
+        setAutoSync(false);
+        setSyncStatus("idle");
+        setMessage(err instanceof Error ? err.message : "Authorization failed.");
+      } finally {
+        setBusy(null);
+      }
+    }
+  };
 
   const run = async (action: "backup" | "restore" | "check") => {
     setBusy(action);
@@ -219,6 +257,26 @@ function GoogleDriveSync() {
         <div className="rounded-2xl bg-warning/10 px-4 py-3 text-xs text-warning hairline">
           Add <span className="num">VITE_GOOGLE_CLIENT_ID</span> to enable Google sync. Create a
           free OAuth Web client in Google Cloud and allow this app's URL.
+        </div>
+      )}
+
+      {configured && (
+        <div className="rounded-2xl bg-surface-elevated px-4 py-3 hairline">
+          <Row label="Auto-sync changes">
+            <button
+              disabled={busy !== null}
+              onClick={handleToggleAutoSync}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                autoSync ? "bg-primary" : "bg-muted hairline"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  autoSync ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </Row>
         </div>
       )}
 
