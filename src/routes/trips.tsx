@@ -53,11 +53,17 @@ function TripsPage() {
       trips: data.trips.map((trip) => {
         if (trip.id !== editingId) return trip;
         if (trip.mode === "manual") {
-          const startOdo = Number(editStartOdo);
-          const endOdo = Number(editEndOdo);
-          const distance = endOdo - startOdo;
-          if (startOdo < 0 || distance <= 0) return trip;
-          return { ...trip, startOdo, endOdo, distance, date };
+          if (trip.startOdo !== undefined) {
+            const startOdo = Number(editStartOdo);
+            const endOdo = Number(editEndOdo);
+            const distance = endOdo - startOdo;
+            if (startOdo < 0 || distance <= 0) return trip;
+            return { ...trip, startOdo, endOdo, distance, date };
+          } else {
+            const distance = Number(editDistance);
+            if (distance <= 0) return trip;
+            return { ...trip, distance, date, startOdo: undefined, endOdo: undefined };
+          }
         }
         const distance = Number(editDistance);
         if (distance <= 0) return trip;
@@ -84,7 +90,7 @@ function TripsPage() {
             key={k}
             onClick={() => setMode(k)}
             className={cn(
-              "flex flex-col items-center gap-2 rounded-2xl px-3 py-4 text-xs font-medium transition-all active:scale-[0.97]",
+              "flex flex-col items-center gap-2 rounded-2xl px-3 py-4 text-xs font-medium transition-all active:scale-[0.97] cursor-pointer",
               mode === k
                 ? "bg-primary text-primary-foreground"
                 : "bg-surface text-muted-foreground hairline",
@@ -118,7 +124,7 @@ function TripsPage() {
               editingId === t.id ? (
                 <Card key={t.id} className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
-                    {t.mode === "manual" ? (
+                    {t.mode === "manual" && t.startOdo !== undefined ? (
                       <>
                         <NumberField
                           label="Start odo"
@@ -128,34 +134,38 @@ function TripsPage() {
                         <NumberField label="End odo" value={editEndOdo} onChange={setEditEndOdo} />
                       </>
                     ) : (
-                      <NumberField
-                        label="Distance (km)"
-                        value={editDistance}
-                        onChange={setEditDistance}
-                      />
+                      <div className="col-span-2">
+                        <NumberField
+                          label="Distance (km)"
+                          value={editDistance}
+                          onChange={setEditDistance}
+                        />
+                      </div>
                     )}
-                    <label className="block rounded-2xl bg-surface-elevated px-4 py-3 hairline">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                        Date & time
-                      </span>
-                      <input
-                        type="datetime-local"
-                        value={editDate}
-                        onChange={(event) => setEditDate(event.target.value)}
-                        className="num mt-1 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
-                      />
-                    </label>
+                    <div className="col-span-2">
+                      <label className="block rounded-2xl bg-surface-elevated px-4 py-3 hairline">
+                        <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                          Date & time
+                        </span>
+                        <input
+                          type="datetime-local"
+                          value={editDate}
+                          onChange={(event) => setEditDate(event.target.value)}
+                          className="num mt-1 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-1">
                     <button
                       onClick={cancelEditing}
-                      className="flex-1 rounded-2xl bg-surface-elevated px-4 py-3 text-sm text-muted-foreground hairline"
+                      className="flex-1 rounded-2xl bg-surface-elevated px-4 py-3 text-sm text-muted-foreground hairline cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={saveEditing}
-                      className="flex-[2] rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+                      className="flex-[2] rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground cursor-pointer"
                     >
                       Save changes
                     </button>
@@ -168,21 +178,21 @@ function TripsPage() {
                       {t.distance.toFixed(2)} km
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(t.date).toLocaleString()} · {t.mode.toUpperCase()}
+                      {new Date(t.date).toLocaleString()} · {t.mode.toUpperCase()}{t.mode === "manual" && t.startOdo === undefined ? " (DIST)" : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => startEditing(t)}
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary cursor-pointer"
                     >
                       <Pencil className="h-3 w-3" /> Edit
                     </button>
                     <button
                       onClick={() =>
-                        update((d) => ({ ...d, trips: d.trips.filter((x) => x.id !== t.id) }))
+                         update((d) => ({ ...d, trips: d.trips.filter((x) => x.id !== t.id) }))
                       }
-                      className="text-xs text-muted-foreground/70 hover:text-danger"
+                      className="text-xs text-muted-foreground/70 hover:text-danger cursor-pointer"
                     >
                       Delete
                     </button>
@@ -199,47 +209,132 @@ function TripsPage() {
 function ManualTrip() {
   const { data, update } = useAppData();
   const latestOdo = currentOdometer(data);
+
+  const [calcMode, setCalcMode] = useState<"odo" | "distance">("distance");
   const [start, setStart] = useState(() => String(latestOdo));
   const [end, setEnd] = useState("");
-  const distance = Math.max(0, Number(end) - Number(start));
+  const [distanceInput, setDistanceInput] = useState("");
+  const [date, setDate] = useState(() => toLocalDateTimeInput(Date.now()));
 
   useEffect(() => {
     setStart((value) => (value ? value : String(latestOdo)));
   }, [latestOdo]);
 
+  const finalDistance = calcMode === "odo"
+    ? Math.max(0, Number(end) - Number(start))
+    : Number(distanceInput);
+
+  const handleSave = () => {
+    if (finalDistance <= 0 || !date) return;
+    const timestamp = new Date(date).getTime();
+    if (!Number.isFinite(timestamp)) return;
+
+    update((d) => ({
+      ...d,
+      trips: [
+        ...d.trips,
+        {
+          id: uid(),
+          date: timestamp,
+          mode: "manual",
+          ...(calcMode === "odo"
+            ? { startOdo: Number(start), endOdo: Number(end) }
+            : {}),
+          distance: finalDistance,
+        },
+      ],
+    }));
+
+    if (calcMode === "odo") {
+      setStart(end);
+      setEnd("");
+    } else {
+      setDistanceInput("");
+    }
+    setDate(toLocalDateTimeInput(Date.now()));
+  };
+
   return (
-    <Card>
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Manual entry</p>
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <NumberField label="Start odo" value={start} onChange={setStart} />
-        <NumberField label="End odo" value={end} onChange={setEnd} />
+    <Card className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Manual entry</p>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Distance · <span className="num text-foreground">{distance.toFixed(2)} km</span>
-      </p>
+
+      {/* Mode Selector Switch */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-elevated p-1 hairline">
+        <button
+          type="button"
+          onClick={() => setCalcMode("distance")}
+          className={cn(
+            "rounded-lg py-1.5 text-center text-xs font-semibold transition-all cursor-pointer",
+            calcMode === "distance"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Direct Distance
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalcMode("odo")}
+          className={cn(
+            "rounded-lg py-1.5 text-center text-xs font-semibold transition-all cursor-pointer",
+            calcMode === "odo"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Odometer Range
+        </button>
+      </div>
+
+      {calcMode === "odo" ? (
+        <div className="grid grid-cols-2 gap-3">
+          <NumberField label="Start odo" value={start} onChange={setStart} />
+          <NumberField label="End odo" value={end} onChange={setEnd} />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <NumberField label="Distance (km)" value={distanceInput} onChange={setDistanceInput} />
+          {Number(distanceInput) > 0 && (
+            <div className="text-[11px] text-muted-foreground px-4 py-1 flex justify-between fade-in-up">
+              <span>Odometer will increase to:</span>
+              <span className="num font-semibold text-foreground">
+                {(latestOdo + Number(distanceInput)).toLocaleString()} km
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="block rounded-2xl bg-surface-elevated px-4 py-3 hairline">
+          <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground block">
+            Date & time
+          </span>
+          <input
+            type="datetime-local"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="num mt-1 w-full bg-transparent text-sm font-semibold text-foreground outline-none"
+          />
+        </label>
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+        <span>Distance to log</span>
+        <span className="num text-lg font-bold text-foreground">
+          {finalDistance.toFixed(2)} km
+        </span>
+      </div>
+
       <button
-        disabled={distance <= 0}
-        onClick={() => {
-          update((d) => ({
-            ...d,
-            trips: [
-              ...d.trips,
-              {
-                id: uid(),
-                date: Date.now(),
-                mode: "manual",
-                startOdo: Number(start),
-                endOdo: Number(end),
-                distance,
-              },
-            ],
-          }));
-          setStart(String(Number(end)));
-          setEnd("");
-        }}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+        disabled={finalDistance <= 0 || !date}
+        onClick={handleSave}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-40 transition active:scale-[0.98] cursor-pointer"
+        style={{ boxShadow: "var(--shadow-glow)" }}
       >
-        <Plus className="h-4 w-4" /> Save ride
+        <Plus className="h-4 w-4" /> Save manual ride
       </button>
     </Card>
   );
